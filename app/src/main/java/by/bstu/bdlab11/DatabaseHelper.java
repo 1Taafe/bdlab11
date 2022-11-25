@@ -96,7 +96,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + EXAMDATE_COLUMN + " TEXT,"
                 + MARK_COLUMN + " INTEGER,"
                 + TEACHER_COLUMN + " TEXT,"
-                + "FOREIGN KEY (" + IDSTUDENT_COLUMN + ") REFERENCES " + STUDENT_TABLE + "(" + IDSTUDENT_COLUMN + "),"
+                + "FOREIGN KEY (" + IDSTUDENT_COLUMN + ") REFERENCES " + STUDENT_TABLE + "(" + IDSTUDENT_COLUMN + ") ON DELETE CASCADE,"
                 + "FOREIGN KEY (" + IDSUBJECT_COLUMN + ") REFERENCES " + SUBJECT_TABLE + "(" + IDSUBJECT_COLUMN + "))";
 
 
@@ -124,7 +124,34 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(indx_Progress_idstudent);
         db.execSQL(indx_Progress_idsubject);
 
+        String tr_denyStudentDelete = "CREATE TRIGGER \"denyStudentDelete\"\n" +
+                " BEFORE DELETE\n" +
+                "     ON \"STUDENT\"\n" +
+                "\twhen 3 >(select count(IDSTUDENT) from STUDENT INNER JOIN GROUP_ on STUDENT.IDGROUP = GROUP_.IDGROUP\n" +
+                "\twhere STUDENT.IDGROUP = OLD.IDGROUP)\n" +
+                "  BEGIN\n" +
+                "   SELECT RAISE(ABORT, 'Students count < 3 :: Cant delete!');\n" +
+                "    END";
+        db.execSQL(tr_denyStudentDelete);
 
+        String tr_denyStudentInsert = "CREATE TRIGGER \"denyStudentInsert\"\n" +
+                " BEFORE INSERT\n" +
+                "     ON \"STUDENT\"\n" +
+                "\twhen 6 <(select count(IDSTUDENT) from STUDENT INNER JOIN GROUP_ on STUDENT.IDGROUP = GROUP_.IDGROUP\n" +
+                "\twhere STUDENT.IDGROUP = NEW.IDGROUP)\n" +
+                "  BEGIN\n" +
+                "   SELECT RAISE(ABORT, 'Students count > 6 :: Cant insert!');\n" +
+                "    END";
+        db.execSQL(tr_denyStudentInsert);
+
+        String subjectView = "CREATE VIEW IF NOT EXISTS subjectView AS SELECT * FROM SUBJECT";
+        db.execSQL(subjectView);
+
+        String tr_updateThroughView = "CREATE TRIGGER updateSubject INSTEAD OF UPDATE ON SUBJECTVIEW\n" +
+                "BEGIN\n" +
+                "\tUPDATE SUBJECT SET SUBJECT=NEW.SUBJECT WHERE SUBJECT.IDSUBJECT=NEW.IDSUBJECT;\n" +
+                "END;\n";
+        db.execSQL(tr_updateThroughView);
     }
 
     public void Initialize(Context context){
